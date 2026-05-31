@@ -1,6 +1,21 @@
 <?php
 require_once("../config/db.php");
 
+if(isset($_GET['action']) && isset($_GET['etd']) && isset($_GET['livre']) && isset($_GET['date'])){
+    $action = $_GET['action'];
+    $etd    = $_GET['etd'];
+    $livre  = $_GET['livre'];
+    $date   = $_GET['date'];
+
+    if($action == 'accepte' || $action == 'refuse'){
+        $sql = "UPDATE pret SET Statut = ? WHERE NumEtd = ? AND NumLivre = ? AND DatePret = ?";
+        $t = $cnx->prepare($sql);
+        $t->execute([$action, $etd, $livre, $date]);
+        header("Location: prets.php");
+        exit();
+    }
+}
+
 if($_SERVER["REQUEST_METHOD"] == "POST"){
     $id_etd   = $_POST["id_etd"];
     $id_livre = $_POST["id_livre"];
@@ -40,7 +55,6 @@ $livres    = $cnx->query("SELECT NumLivre, TitreLivre FROM livre")->fetchAll(PDO
 </head>
 <body class="min-h-screen bg-[#0a0f1e] text-slate-100 flex">
 
-    <!-- SIDEBAR -->
     <aside class="w-64 min-h-screen glass border-r border-white/5 flex flex-col py-8 px-4 fixed top-0 left-0">
         <h1 class="fancy text-2xl font-bold text-white mb-10 px-2">
             Biblio<span class="text-yellow-400">thèque</span>
@@ -61,10 +75,8 @@ $livres    = $cnx->query("SELECT NumLivre, TitreLivre FROM livre")->fetchAll(PDO
         </div>
     </aside>
 
-    <!-- MAIN -->
     <main class="ml-64 flex-1 p-8">
 
-        <!-- HEADER -->
         <div class="glass rounded-2xl p-6 mb-8 flex justify-between items-center">
             <div>
                 <p class="text-xs font-bold text-yellow-600 uppercase tracking-widest">Gestion</p>
@@ -75,7 +87,6 @@ $livres    = $cnx->query("SELECT NumLivre, TitreLivre FROM livre")->fetchAll(PDO
             </span>
         </div>
 
-        <!-- FORM -->
         <div class="glass rounded-2xl p-6 mb-8 border border-white/5">
             <h3 class="text-lg font-bold text-white mb-6">➕ Ajouter un Prêt</h3>
             <form method="POST" class="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -117,7 +128,6 @@ $livres    = $cnx->query("SELECT NumLivre, TitreLivre FROM livre")->fetchAll(PDO
             </form>
         </div>
 
-        <!-- TABLE -->
         <div class="glass rounded-2xl p-6 border border-white/5">
             <h3 class="text-lg font-bold text-white mb-4">📋 Liste des Prêts</h3>
             <div class="overflow-x-auto rounded-xl border border-white/5">
@@ -128,6 +138,8 @@ $livres    = $cnx->query("SELECT NumLivre, TitreLivre FROM livre")->fetchAll(PDO
                             <th class="p-4 text-xs font-bold text-yellow-600 uppercase tracking-widest">Livre</th>
                             <th class="p-4 text-xs font-bold text-yellow-600 uppercase tracking-widest">Date Prêt</th>
                             <th class="p-4 text-xs font-bold text-yellow-600 uppercase tracking-widest">Date Retour</th>
+                            <th class="p-4 text-xs font-bold text-yellow-600 uppercase tracking-widest">Statut</th>
+                            <th class="p-4 text-xs font-bold text-yellow-600 uppercase tracking-widest">Actions</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-white/5">
@@ -141,11 +153,37 @@ $livres    = $cnx->query("SELECT NumLivre, TitreLivre FROM livre")->fetchAll(PDO
                                     <?= $p['DateRetour'] ?>
                                 </span>
                             </td>
+                            <td class="p-4 text-sm">
+                                <?php if($p['Statut'] == 'en_attente'): ?>
+                                    <span class="px-3 py-1 rounded-md text-xs font-semibold bg-slate-500/10 text-slate-400 border border-slate-500/20">⏳ En attente</span>
+                                <?php elseif($p['Statut'] == 'accepte'): ?>
+                                    <span class="px-3 py-1 rounded-md text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">✅ Accepté</span>
+                                <?php else: ?>
+                                    <span class="px-3 py-1 rounded-md text-xs font-semibold bg-red-500/10 text-red-400 border border-red-500/20">❌ Refusé</span>
+                                <?php endif; ?>
+                            </td>
+                            <td class="p-4">
+                                <?php if($p['Statut'] == 'en_attente'): ?>
+                                    <div class="flex gap-2">
+                                        <a href="prets.php?action=accepte&etd=<?= $p['NumEtd'] ?>&livre=<?= $p['NumLivre'] ?>&date=<?= $p['DatePret'] ?>"
+                                           class="px-3 py-1.5 rounded-lg text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500 hover:text-white transition-all">
+                                           ✅ Accepter
+                                        </a>
+                                        <a href="prets.php?action=refuse&etd=<?= $p['NumEtd'] ?>&livre=<?= $p['NumLivre'] ?>&date=<?= $p['DatePret'] ?>"
+                                           class="px-3 py-1.5 rounded-lg text-xs font-bold text-red-400 bg-red-500/10 border border-red-500/20 hover:bg-red-500 hover:text-white transition-all">
+                                           ❌ Refuser
+                                        </a>
+                                    </div>
+                                <?php else: ?>
+                                    <span class="text-slate-600 text-xs">—</span>
+                                <?php endif; ?>
+                            </td>
                         </tr>
                         <?php endforeach; ?>
+
                         <?php if(count($prets) == 0): ?>
                         <tr>
-                            <td colspan="4" class="p-8 text-center text-slate-500 text-sm">Aucun prêt pour le moment.</td>
+                            <td colspan="6" class="p-8 text-center text-slate-500 text-sm">Aucun prêt pour le moment.</td>
                         </tr>
                         <?php endif; ?>
                     </tbody>
